@@ -1,0 +1,23 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "type": "java",
+            "name": "Current File",
+            "request": "launch",
+            "mainClass": "${file}"
+        },
+        {
+            "type": "java",
+            "name": "Main",
+            "request": "launch",
+            "mainClass": "ktu.kaganndemirr.Main",
+            "projectName": "tsncf-original",
+            "args": "-net C:\\Users\\kaganndemirr\\tsn-ro-tsnsched-avblm\\debug-topologies\\architecture\\ABB.xml -app C:\\Users\\kaganndemirr\\tsn-ro-tsnsched-avblm\\debug-topologies\\application\\ABB_T1.xml"
+        }
+    ]
+}

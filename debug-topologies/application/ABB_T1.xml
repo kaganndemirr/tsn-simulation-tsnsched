@@ -1,0 +1,57 @@
+<Applications>
+    <Application name="APP_1">
+        <FrameSize>1500</FrameSize>
+        <NumberOfFrames>1</NumberOfFrames>
+        <Source name="ES400" />
+        <Target name="ES406" />
+        <Deadline>1000</Deadline>
+        <CMI>125</CMI>
+        <PCP>6</PCP>
+    </Application>
+
+    <Application name="APP_2">
+        <FrameSize>1500</FrameSize>
+        <NumberOfFrames>1</NumberOfFrames>
+        <Source name="ES401" />
+        <Target name="ES418" />
+        <Deadline>2000</Deadline>
+        <CMI>125</CMI>
+        <PCP>6</PCP>
+    </Application>
+
+    <Application name="APP_3">
+        <FrameSize>1500</FrameSize>
+        <NumberOfFrames>1</NumberOfFrames>
+        <Source name="ES402" />
+        <Target name="ES417" />
+        <Deadline>8000</Deadline>
+        <CMI>125</CMI>
+        <PCP>6</PCP>
+    </Application>
+
+    <Application name="APP_4">
+        <FrameSize>1500</FrameSize>
+        <NumberOfFrames>1</NumberOfFrames>
+        <Source name="ES405" />
+        <Target name="ES402" />
+        <Deadline>8000</Deadline>
+        <CMI>125</CMI>
+        <PCP>7</PCP>
+    </Application>
+
+    <Application name="APP_5">
+        <FrameSize>1500</FrameSize>
+        <NumberOfFrames>1</NumberOfFrames>
+        <Source name="ES417" />
+        <Path>
+            <Switch name="B318" />
+            <Switch name="B209" />
+            <Switch name="B200" />
+            <Switch name="B301" />
+        </Path>
+        <Target name="ES401" />
+        <Deadline>8000</Deadline>
+        <CMI>125</CMI>
+        <PCP>7</PCP>
+    </Application>
+</Applications>
