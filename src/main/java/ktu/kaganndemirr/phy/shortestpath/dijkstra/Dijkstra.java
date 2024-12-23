@@ -38,11 +38,6 @@ public class Dijkstra extends Solver {
         solution = new ArrayList<>();
         durationMap = new HashMap<>();
 
-        List<Application> applicationsHaveNotExplicitPath = GraphSpecificMethods.findApplicationsHaveNotExplicitPath(applications);
-        List<Application> applicationsHaveExplicitPath = GraphSpecificMethods.findApplicationsHaveExplicitPath(applications);
-        List<Unicast> applicationsHaveExplicitPathUnicasts = GraphSpecificMethods.createUnicastForApplicationsHaveExplicitPath(applicationsHaveExplicitPath, physicalTopology);
-        solution.addAll(applicationsHaveExplicitPathUnicasts);
-
         Instant graphPathStartTime = Instant.now();
         DijkstraGraphPath gp = new DijkstraGraphPath(physicalTopology, applicationsHaveNotExplicitPath);
         Instant graphPathEndTime = Instant.now();

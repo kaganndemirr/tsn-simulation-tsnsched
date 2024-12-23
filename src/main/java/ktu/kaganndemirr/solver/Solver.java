@@ -66,7 +66,7 @@ public abstract class Solver {
     }
 
     // Metaheuristic, MTR
-    public Solution solveMM(final Graph<Node, GCLEdge> physicalTopology, final List<Application> applications, Evaluator evaluator, Duration dur, int threadNumber, String differentDursComputationMethod, String baStandard, boolean overload) {
+    public Solution solveMM(final Graph<Node, GCLEdge> physicalTopology, final List<Application> applications, Evaluator evaluator, Duration dur, int threadNumber, String differentDursComputationMethod) {
         return null;
     }
 

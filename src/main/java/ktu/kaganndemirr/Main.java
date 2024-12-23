@@ -11,8 +11,10 @@ import ktu.kaganndemirr.parser.TopologyParser;
 import ktu.kaganndemirr.phy.shortestpath.dijkstra.Dijkstra;
 import ktu.kaganndemirr.phy.yen.metaheuristic.*;
 import ktu.kaganndemirr.phy.yen.heuristic.*;
+import ktu.kaganndemirr.route.Unicast;
 import ktu.kaganndemirr.solver.*;
 import ktu.kaganndemirr.util.Constants;
+import ktu.kaganndemirr.util.GraphSpecificMethods;
 import org.apache.commons.cli.*;
 import org.jgrapht.Graph;
 import org.slf4j.Logger;
@@ -25,6 +27,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 
 public class Main {
@@ -262,15 +265,19 @@ public class Main {
 
             //Parse Topology
             logger.info("Parsing Topology from {}", net.getName());
-            Graph<Node, GCLEdge> graph = TopologyParser.parse(net, idleSlope);
+            Graph<Node, GCLEdge> physicalTopology = TopologyParser.parse(net, idleSlope);
             logger.info("Topology parsed!");
 
             //endregion
 
             //Parse Applications
             logger.info("Parsing application set from {}", app.getName());
-            List<Application> apps = ApplicationParser.parse(app, rate);
-            logger.info("Applications parsed! ");
+            List<Application> applications = ApplicationParser.parse(app);
+            List<Application> applicationsHaveNotExplicitPath = ApplicationParser.findApplicationsHaveNotExplicitPath(applications);
+            List<Application> applicationsHaveExplicitPath = applications.stream()
+                    .filter(item -> !applicationsHaveNotExplicitPath.contains(item))
+                    .collect(Collectors.toList());
+            logger.info("Applications parsed!");
 
             //region <Parse Topology Name>
             String applicationName = null;
@@ -310,6 +317,25 @@ public class Main {
             //endregion
             //region
 
+
+            List<Unicast> applicationsHaveExplicitPathUnicasts = GraphSpecificMethods.createUnicastForApplicationsHaveExplicitPath(applicationsHaveExplicitPath, physicalTopology);
+
+
+            SolverTT sTT;
+
+            switch (solver) {
+                case "phy" -> {
+                    switch (method) {
+                        case "shortestpath" -> {
+                            switch (algorithm) {
+                                case "dijkstra" -> {
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             //region <Set Solver>
             Solver s;
 
@@ -322,7 +348,7 @@ public class Main {
                                     s = new Dijkstra();
 
                                     logger.info("Solving problem using {}, {}", solver, algorithm);
-                                    Solution sol = s.solveSP(graph, apps, new AVBLatencyMath());
+                                    Solution sol = s.solveSP(physicalTopology, applications, new AVBLatencyMath());
 
                                     PHYShortestPathHolder phyShortestPathHolder = new PHYShortestPathHolder();
 
@@ -348,13 +374,13 @@ public class Main {
 
                                             oS.writeWCDsToFile(sol.getCost().getaWCDMap());
 
-                                            oS.writeLinkUtilizationsToFile(s.getSolution(), graph, rate);
+                                            oS.writeLinkUtilizationsToFile(s.getSolution(), physicalTopology, rate);
 
                                             oS.writeDurationMap(s.getDurationMap());
 
                                             oS.writeAVBTTIntersectionToFile(s.getSolution());
 
-                                            oS.writeLinkAVBTTIntersectionToFile(graph, s.getSolution());
+                                            oS.writeLinkAVBTTIntersectionToFile(physicalTopology, s.getSolution());
                                         }
                                     }
                                 }
@@ -367,7 +393,7 @@ public class Main {
                                     s = new WSMD(k);
 
                                     logger.info("Solving problem using {}, {}, {}, K: {}, mcdmObjective: {}, wAVB: {}, wTT: {}, wLength: {}, wUtil: {}, WSMNormalization: {}", solver, method, algorithm, k, mcdmObjective, wAVB, wTT, wLength, wUtil, wsmNormalization);
-                                    Solution sol = s.solveHWSM(graph, apps, new AVBLatencyMath(), wsmNormalization, Double.parseDouble(wAVB), Double.parseDouble(wTT), Double.parseDouble(wLength), Double.parseDouble(wUtil), rate, mcdmObjective);
+                                    Solution sol = s.solveHWSM(physicalTopology, applications, new AVBLatencyMath(), wsmNormalization, Double.parseDouble(wAVB), Double.parseDouble(wTT), Double.parseDouble(wLength), Double.parseDouble(wUtil), rate, mcdmObjective);
 
                                     PHYWSMHolder phyWSMHolder = new PHYWSMHolder();
                                     phyWSMHolder.setTopologyName(topologyName);
@@ -399,7 +425,7 @@ public class Main {
 
                                             oS.writeWCDsToFile(sol.getCost().getaWCDMap());
 
-                                            oS.writeLinkUtilizationsToFile(s.getSolution(), graph, rate);
+                                            oS.writeLinkUtilizationsToFile(s.getSolution(), physicalTopology, rate);
 
                                             oS.writeDurationMap(s.getDurationMap());
 
@@ -407,7 +433,7 @@ public class Main {
 
                                             oS.writeAVBTTIntersectionToFile(s.getSolution());
 
-                                            oS.writeLinkAVBTTIntersectionToFile(graph, s.getSolution());
+                                            oS.writeLinkAVBTTIntersectionToFile(physicalTopology, s.getSolution());
 
                                             oS.writeAVBCandidateRoutesToFile(s.getAVBUnicastCandidates());
                                         }
@@ -422,7 +448,7 @@ public class Main {
                                         logger.info("Solving problem using {}, {}, {}, K: {}, mcdmObjective: {}, wAVB: {}, wTT: {}, wLength: {}, wUtil: {}, wpmVersion: {}, wpmValueType: {}", solver, method, algorithm, k, mcdmObjective, wAVB, wTT, wLength, wUtil, wpmVersion, wpmValueType);
                                     }
 
-                                    Solution sol = s.solveHWPM(graph, apps, new AVBLatencyMath(), Double.parseDouble(wAVB), Double.parseDouble(wTT), Double.parseDouble(wLength), Double.parseDouble(wUtil), rate, mcdmObjective, wpmVersion, wpmValueType);
+                                    Solution sol = s.solveHWPM(physicalTopology, applications, new AVBLatencyMath(), Double.parseDouble(wAVB), Double.parseDouble(wTT), Double.parseDouble(wLength), Double.parseDouble(wUtil), rate, mcdmObjective, wpmVersion, wpmValueType);
 
                                     PHYWPMv1Holder phyWPMv1Holder = new PHYWPMv1Holder();
                                     PHYWPMv2Holder phyWPMv2Holder = new PHYWPMv2Holder();
@@ -475,7 +501,7 @@ public class Main {
 
                                                 oS.writeWCDsToFile(sol.getCost().getaWCDMap());
 
-                                                oS.writeLinkUtilizationsToFile(s.getSolution(), graph, rate);
+                                                oS.writeLinkUtilizationsToFile(s.getSolution(), physicalTopology, rate);
 
                                                 oS.writeDurationMap(s.getDurationMap());
 
@@ -483,7 +509,7 @@ public class Main {
 
                                                 oS.writeAVBTTIntersectionToFile(s.getSolution());
 
-                                                oS.writeLinkAVBTTIntersectionToFile(graph, s.getSolution());
+                                                oS.writeLinkAVBTTIntersectionToFile(physicalTopology, s.getSolution());
 
                                                 oS.writeAVBCandidateRoutesToFile(s.getAVBUnicastCandidates());
                                             } else if (Objects.equals(wpmVersion, Constants.WPMVERSIONV2)) {
@@ -493,7 +519,7 @@ public class Main {
 
                                                 oS.writeWCDsToFile(sol.getCost().getaWCDMap());
 
-                                                oS.writeLinkUtilizationsToFile(s.getSolution(), graph, rate);
+                                                oS.writeLinkUtilizationsToFile(s.getSolution(), physicalTopology, rate);
 
                                                 oS.writeDurationMap(s.getDurationMap());
 
@@ -501,7 +527,7 @@ public class Main {
 
                                                 oS.writeAVBTTIntersectionToFile(s.getSolution());
 
-                                                oS.writeLinkAVBTTIntersectionToFile(graph, s.getSolution());
+                                                oS.writeLinkAVBTTIntersectionToFile(physicalTopology, s.getSolution());
 
                                                 oS.writeAVBCandidateRoutesToFile(s.getAVBUnicastCandidates());
                                             }
@@ -514,7 +540,7 @@ public class Main {
                                     s = new GRASPWSMLWRD(k);
 
                                     logger.info("Solving problem using {}, {}, {}, K: {}, Dur: {}s, MCDMObjective: {}, wAVB: {}, wTT: {}, wLength: {}, wUtil: {}, WSMNormalization: {}, RandomizationLWR: {}", solver, method, algorithm, k, Duration.ofSeconds(duration).toSeconds(), mcdmObjective, wAVB, wTT, wLength, wUtil, wsmNormalization, randomizationLWR);
-                                    Solution sol = s.solveMWSMLWR(graph, apps, new AVBLatencyMath(), Duration.ofSeconds(duration), threadNumber, wsmNormalization, Double.parseDouble(wAVB), Double.parseDouble(wTT), Double.parseDouble(wLength), Double.parseDouble(wUtil), rate, mcdmObjective, randomizationLWR, mhtype, maxIter);
+                                    Solution sol = s.solveMWSMLWR(physicalTopology, applications, new AVBLatencyMath(), Duration.ofSeconds(duration), threadNumber, wsmNormalization, Double.parseDouble(wAVB), Double.parseDouble(wTT), Double.parseDouble(wLength), Double.parseDouble(wUtil), rate, mcdmObjective, randomizationLWR, mhtype, maxIter);
 
                                     PHYWSMLWRHolder phyWSMLWRHolder = new PHYWSMLWRHolder();
                                     phyWSMLWRHolder.setTopologyName(topologyName);
@@ -547,7 +573,7 @@ public class Main {
 
                                             oS.writeWCDsToFile(sol.getCost().getaWCDMap());
 
-                                            oS.writeLinkUtilizationsToFile(s.getSolution(), graph, rate);
+                                            oS.writeLinkUtilizationsToFile(s.getSolution(), physicalTopology, rate);
 
                                             oS.writeDurationMap(s.getDurationMap());
 
@@ -555,7 +581,7 @@ public class Main {
 
                                             oS.writeAVBTTIntersectionToFile(s.getSolution());
 
-                                            oS.writeLinkAVBTTIntersectionToFile(graph, s.getSolution());
+                                            oS.writeLinkAVBTTIntersectionToFile(physicalTopology, s.getSolution());
 
                                             oS.writeAVBCandidateRoutesToFile(s.getAVBUnicastCandidates());
                                         }
@@ -570,7 +596,7 @@ public class Main {
                                         logger.info("Solving problem using {}, {}, {}, K: {}, Dur: {}s, MCDMObjective: {}, wAVB: {}, wTT: {}, wLength: {}, wUtil: {}, RandomizationLWR: {}, wpmVersion: {}, wpmValueType: {}", solver, method, algorithm, k, Duration.ofSeconds(duration).toSeconds(), mcdmObjective, wAVB, wTT, wLength, wUtil, randomizationLWR, wpmVersion, wpmValueType);
                                     }
 
-                                    Solution sol = s.solveMWPMLWR(graph, apps, new AVBLatencyMath(), Duration.ofSeconds(duration), threadNumber, Double.parseDouble(wAVB), Double.parseDouble(wTT), Double.parseDouble(wLength), Double.parseDouble(wUtil), rate, mcdmObjective, randomizationLWR, mhtype, maxIter, wpmVersion, wpmValueType);
+                                    Solution sol = s.solveMWPMLWR(physicalTopology, applications, new AVBLatencyMath(), Duration.ofSeconds(duration), threadNumber, Double.parseDouble(wAVB), Double.parseDouble(wTT), Double.parseDouble(wLength), Double.parseDouble(wUtil), rate, mcdmObjective, randomizationLWR, mhtype, maxIter, wpmVersion, wpmValueType);
 
                                     PHYWPMLWRv1Holder phyWPMLWRv1Holder = new PHYWPMLWRv1Holder();
                                     PHYWPMLWRv2Holder phyWPMLWRv2Holder = new PHYWPMLWRv2Holder();
@@ -626,7 +652,7 @@ public class Main {
 
                                                 oS.writeWCDsToFile(sol.getCost().getaWCDMap());
 
-                                                oS.writeLinkUtilizationsToFile(s.getSolution(), graph, rate);
+                                                oS.writeLinkUtilizationsToFile(s.getSolution(), physicalTopology, rate);
 
                                                 oS.writeDurationMap(s.getDurationMap());
 
@@ -634,7 +660,7 @@ public class Main {
 
                                                 oS.writeAVBTTIntersectionToFile(s.getSolution());
 
-                                                oS.writeLinkAVBTTIntersectionToFile(graph, s.getSolution());
+                                                oS.writeLinkAVBTTIntersectionToFile(physicalTopology, s.getSolution());
 
                                                 oS.writeAVBCandidateRoutesToFile(s.getAVBUnicastCandidates());
                                             }
@@ -645,7 +671,7 @@ public class Main {
 
                                                 oS.writeWCDsToFile(sol.getCost().getaWCDMap());
 
-                                                oS.writeLinkUtilizationsToFile(s.getSolution(), graph, rate);
+                                                oS.writeLinkUtilizationsToFile(s.getSolution(), physicalTopology, rate);
 
                                                 oS.writeDurationMap(s.getDurationMap());
 
@@ -653,7 +679,7 @@ public class Main {
 
                                                 oS.writeAVBTTIntersectionToFile(s.getSolution());
 
-                                                oS.writeLinkAVBTTIntersectionToFile(graph, s.getSolution());
+                                                oS.writeLinkAVBTTIntersectionToFile(physicalTopology, s.getSolution());
 
                                                 oS.writeAVBCandidateRoutesToFile(s.getAVBUnicastCandidates());
                                             }
@@ -666,7 +692,7 @@ public class Main {
                                     s = new GRASPWSMCWRD(k);
 
                                     logger.info("Solving problem using {}, {}, {}, K: {}, Dur: {}s, MCDMObjective: {}, RandomizationCWR: {}", solver, method, algorithm, k, Duration.ofSeconds(duration).toSeconds(), mcdmObjective, randomizationCWR);
-                                    Solution sol = s.solveMWSMCWR(graph, apps, new AVBLatencyMath(), Duration.ofSeconds(duration), threadNumber, wsmNormalization, mcdmObjective, randomizationCWR, rate, mhtype, maxIter);
+                                    Solution sol = s.solveMWSMCWR(physicalTopology, applications, new AVBLatencyMath(), Duration.ofSeconds(duration), threadNumber, wsmNormalization, mcdmObjective, randomizationCWR, rate, mhtype, maxIter);
 
                                     PHYWSMCWRHolder phyWSMCWRHolder = new PHYWSMCWRHolder();
 
@@ -696,7 +722,7 @@ public class Main {
 
                                             oS.writeWCDsToFile(sol.getCost().getaWCDMap());
 
-                                            oS.writeLinkUtilizationsToFile(s.getSolution(), graph, rate);
+                                            oS.writeLinkUtilizationsToFile(s.getSolution(), physicalTopology, rate);
 
                                             oS.writeDurationMap(s.getDurationMap());
 
@@ -704,7 +730,7 @@ public class Main {
 
                                             oS.writeAVBTTIntersectionToFile(s.getSolution());
 
-                                            oS.writeLinkAVBTTIntersectionToFile(graph, s.getSolution());
+                                            oS.writeLinkAVBTTIntersectionToFile(physicalTopology, s.getSolution());
 
                                             oS.writeAVBCandidateRoutesToFile(s.getAVBUnicastCandidates());
                                         }
@@ -719,7 +745,7 @@ public class Main {
                                         logger.info("Solving problem using {}, {}, {}, K: {}, Dur: {}s, MCDMObjective: {}, RandomizationCWR: {}, wpmVersion: {}, wpmValueType: {}", solver, method, algorithm, k, Duration.ofSeconds(duration).toSeconds(), mcdmObjective, randomizationCWR, wpmVersion, wpmValueType);
                                     }
 
-                                    Solution sol = s.solveMWPMCWR(graph, apps, new AVBLatencyMath(), Duration.ofSeconds(duration), threadNumber, mcdmObjective, randomizationCWR, rate, mhtype, maxIter, wpmVersion, wpmValueType);
+                                    Solution sol = s.solveMWPMCWR(physicalTopology, applications, new AVBLatencyMath(), Duration.ofSeconds(duration), threadNumber, mcdmObjective, randomizationCWR, rate, mhtype, maxIter, wpmVersion, wpmValueType);
 
                                     PHYWPMCWRv1Holder phyWPMCWRv1Holder = new PHYWPMCWRv1Holder();
                                     PHYWPMCWRv2Holder phyWPMCWRv2Holder = new PHYWPMCWRv2Holder();
@@ -769,7 +795,7 @@ public class Main {
 
                                                 oS.writeWCDsToFile(sol.getCost().getaWCDMap());
 
-                                                oS.writeLinkUtilizationsToFile(s.getSolution(), graph, rate);
+                                                oS.writeLinkUtilizationsToFile(s.getSolution(), physicalTopology, rate);
 
                                                 oS.writeDurationMap(s.getDurationMap());
 
@@ -777,7 +803,7 @@ public class Main {
 
                                                 oS.writeAVBTTIntersectionToFile(s.getSolution());
 
-                                                oS.writeLinkAVBTTIntersectionToFile(graph, s.getSolution());
+                                                oS.writeLinkAVBTTIntersectionToFile(physicalTopology, s.getSolution());
 
                                                 oS.writeAVBCandidateRoutesToFile(s.getAVBUnicastCandidates());
                                             }else {
@@ -787,7 +813,7 @@ public class Main {
 
                                                 oS.writeWCDsToFile(sol.getCost().getaWCDMap());
 
-                                                oS.writeLinkUtilizationsToFile(s.getSolution(), graph, rate);
+                                                oS.writeLinkUtilizationsToFile(s.getSolution(), physicalTopology, rate);
 
                                                 oS.writeDurationMap(s.getDurationMap());
 
@@ -795,7 +821,7 @@ public class Main {
 
                                                 oS.writeAVBTTIntersectionToFile(s.getSolution());
 
-                                                oS.writeLinkAVBTTIntersectionToFile(graph, s.getSolution());
+                                                oS.writeLinkAVBTTIntersectionToFile(physicalTopology, s.getSolution());
 
                                                 oS.writeAVBCandidateRoutesToFile(s.getAVBUnicastCandidates());
                                             }
@@ -808,7 +834,7 @@ public class Main {
                                     s = new GRASPWSMLWRCWRD(k);
 
                                     logger.info("Solving problem using {}, {}, {}, K: {}, Dur: {}s, mcdmObjective: {}, RandomizationLWR: {}, RandomizationCWR: {}", solver, method, algorithm, k, Duration.ofSeconds(duration).toSeconds(), mcdmObjective, randomizationLWR, randomizationCWR);
-                                    Solution sol = s.solveMWSMLWRCWR(graph, apps, new AVBLatencyMath(), Duration.ofSeconds(duration), threadNumber, wsmNormalization, mcdmObjective, randomizationLWR, rate, mhtype, maxIter, randomizationCWR);
+                                    Solution sol = s.solveMWSMLWRCWR(physicalTopology, applications, new AVBLatencyMath(), Duration.ofSeconds(duration), threadNumber, wsmNormalization, mcdmObjective, randomizationLWR, rate, mhtype, maxIter, randomizationCWR);
 
                                     PHYWSMLWRCWRHolder phyWSMLWRCWRHolder = new PHYWSMLWRCWRHolder();
                                     phyWSMLWRCWRHolder.setTopologyName(topologyName);
@@ -838,7 +864,7 @@ public class Main {
 
                                             oS.writeWCDsToFile(sol.getCost().getaWCDMap());
 
-                                            oS.writeLinkUtilizationsToFile(s.getSolution(), graph, rate);
+                                            oS.writeLinkUtilizationsToFile(s.getSolution(), physicalTopology, rate);
 
                                             oS.writeDurationMap(s.getDurationMap());
 
@@ -846,7 +872,7 @@ public class Main {
 
                                             oS.writeAVBTTIntersectionToFile(s.getSolution());
 
-                                            oS.writeLinkAVBTTIntersectionToFile(graph, s.getSolution());
+                                            oS.writeLinkAVBTTIntersectionToFile(physicalTopology, s.getSolution());
 
                                             oS.writeAVBCandidateRoutesToFile(s.getAVBUnicastCandidates());
                                         }
@@ -856,7 +882,7 @@ public class Main {
                                     s = new U(k);
 
                                     logger.info("Solving problem using {}, {}, {}, K: {}", solver, method, algorithm, k);
-                                    Solution sol = s.solveHU(graph, apps, new AVBLatencyMath(), rate);
+                                    Solution sol = s.solveHU(physicalTopology, applications, new AVBLatencyMath(), rate);
 
                                     PHYHolder phyHolder = new PHYHolder();
 
@@ -883,7 +909,7 @@ public class Main {
 
                                             oS.writeWCDsToFile(sol.getCost().getaWCDMap());
 
-                                            oS.writeLinkUtilizationsToFile(s.getSolution(), graph, rate);
+                                            oS.writeLinkUtilizationsToFile(s.getSolution(), physicalTopology, rate);
 
                                             oS.writeDurationMap(s.getDurationMap());
 
@@ -891,7 +917,7 @@ public class Main {
 
                                             oS.writeAVBTTIntersectionToFile(s.getSolution());
 
-                                            oS.writeLinkAVBTTIntersectionToFile(graph, s.getSolution());
+                                            oS.writeLinkAVBTTIntersectionToFile(physicalTopology, s.getSolution());
 
                                             oS.writeAVBCandidateRoutesToFile(s.getAVBUnicastCandidates());
                                         }
@@ -906,7 +932,7 @@ public class Main {
                                     s = new ktu.kaganndemirr.phy.pp.heuristic.WSMD(k);
 
                                     logger.info("Solving problem using {}, {}, {}, K: {}, mcdmObjective: {}, wAVB: {}, wTT: {}, wLength: {}, wUtil: {}", solver, method, algorithm, k, mcdmObjective, wAVB, wTT, wLength, wUtil);
-                                    Solution sol = s.solveHWSM(graph, apps, new AVBLatencyMath(), wsmNormalization, Double.parseDouble(wAVB), Double.parseDouble(wTT), Double.parseDouble(wLength), Double.parseDouble(wUtil), rate, mcdmObjective);
+                                    Solution sol = s.solveHWSM(physicalTopology, applications, new AVBLatencyMath(), wsmNormalization, Double.parseDouble(wAVB), Double.parseDouble(wTT), Double.parseDouble(wLength), Double.parseDouble(wUtil), rate, mcdmObjective);
 
                                     PHYWSMHolder phyWSMHolder = new PHYWSMHolder();
                                     phyWSMHolder.setTopologyName(topologyName);
@@ -938,7 +964,7 @@ public class Main {
 
                                             oS.writeWCDsToFile(sol.getCost().getaWCDMap());
 
-                                            oS.writeLinkUtilizationsToFile(s.getSolution(), graph, rate);
+                                            oS.writeLinkUtilizationsToFile(s.getSolution(), physicalTopology, rate);
 
                                             oS.writeDurationMap(s.getDurationMap());
 
@@ -946,7 +972,7 @@ public class Main {
 
                                             oS.writeAVBTTIntersectionToFile(s.getSolution());
 
-                                            oS.writeLinkAVBTTIntersectionToFile(graph, s.getSolution());
+                                            oS.writeLinkAVBTTIntersectionToFile(physicalTopology, s.getSolution());
 
                                             oS.writeAVBCandidateRoutesToFile(s.getAVBUnicastCandidates());
                                         }
@@ -961,7 +987,7 @@ public class Main {
                                         logger.info("Solving problem using {}, {}, {}, K: {}, mcdmObjective: {}, wAVB: {}, wTT: {}, wLength: {}, wUtil: {}, wpmVersion: {}, wpmValueType: {}", solver, method, algorithm, k, mcdmObjective, wAVB, wTT, wLength, wUtil, wpmVersion, wpmValueType);
                                     }
 
-                                    Solution sol = s.solveHWPM(graph, apps, new AVBLatencyMath(), Double.parseDouble(wAVB), Double.parseDouble(wTT), Double.parseDouble(wLength), Double.parseDouble(wUtil), rate, mcdmObjective, wpmVersion, wpmValueType);
+                                    Solution sol = s.solveHWPM(physicalTopology, applications, new AVBLatencyMath(), Double.parseDouble(wAVB), Double.parseDouble(wTT), Double.parseDouble(wLength), Double.parseDouble(wUtil), rate, mcdmObjective, wpmVersion, wpmValueType);
 
                                     PHYWPMv1Holder phyWPMv1Holder = new PHYWPMv1Holder();
                                     PHYWPMv2Holder phyWPMv2Holder = new PHYWPMv2Holder();
@@ -1014,7 +1040,7 @@ public class Main {
 
                                                 oS.writeWCDsToFile(sol.getCost().getaWCDMap());
 
-                                                oS.writeLinkUtilizationsToFile(s.getSolution(), graph, rate);
+                                                oS.writeLinkUtilizationsToFile(s.getSolution(), physicalTopology, rate);
 
                                                 oS.writeDurationMap(s.getDurationMap());
 
@@ -1022,7 +1048,7 @@ public class Main {
 
                                                 oS.writeAVBTTIntersectionToFile(s.getSolution());
 
-                                                oS.writeLinkAVBTTIntersectionToFile(graph, s.getSolution());
+                                                oS.writeLinkAVBTTIntersectionToFile(physicalTopology, s.getSolution());
 
                                                 oS.writeAVBCandidateRoutesToFile(s.getAVBUnicastCandidates());
                                             } else if (Objects.equals(wpmVersion, Constants.WPMVERSIONV2)) {
@@ -1032,7 +1058,7 @@ public class Main {
 
                                                 oS.writeWCDsToFile(sol.getCost().getaWCDMap());
 
-                                                oS.writeLinkUtilizationsToFile(s.getSolution(), graph, rate);
+                                                oS.writeLinkUtilizationsToFile(s.getSolution(), physicalTopology, rate);
 
                                                 oS.writeDurationMap(s.getDurationMap());
 
@@ -1040,7 +1066,7 @@ public class Main {
 
                                                 oS.writeAVBTTIntersectionToFile(s.getSolution());
 
-                                                oS.writeLinkAVBTTIntersectionToFile(graph, s.getSolution());
+                                                oS.writeLinkAVBTTIntersectionToFile(physicalTopology, s.getSolution());
 
                                                 oS.writeAVBCandidateRoutesToFile(s.getAVBUnicastCandidates());
                                             }
@@ -1053,7 +1079,7 @@ public class Main {
                                     s = new ktu.kaganndemirr.phy.pp.metaheuristic.GRASPWSMLWRD(k);
 
                                     logger.info("Solving problem using {}, {}, {}, K: {}, Dur: {}s, MCDMObjective: {}, wAVB: {}, wTT: {}, wLength: {}, wUtil: {}, RandomizationLWR: {}", solver, method, algorithm, k, Duration.ofSeconds(duration).toSeconds(), mcdmObjective, wAVB, wTT, wLength, wUtil, randomizationLWR);
-                                    Solution sol = s.solveMWSMLWR(graph, apps, new AVBLatencyMath(), Duration.ofSeconds(duration), threadNumber, wsmNormalization, Double.parseDouble(wAVB), Double.parseDouble(wTT), Double.parseDouble(wLength), Double.parseDouble(wUtil), rate, mcdmObjective, randomizationLWR, mhtype, maxIter);
+                                    Solution sol = s.solveMWSMLWR(physicalTopology, applications, new AVBLatencyMath(), Duration.ofSeconds(duration), threadNumber, wsmNormalization, Double.parseDouble(wAVB), Double.parseDouble(wTT), Double.parseDouble(wLength), Double.parseDouble(wUtil), rate, mcdmObjective, randomizationLWR, mhtype, maxIter);
 
                                     PHYWSMLWRHolder phyWSMLWRHolder = new PHYWSMLWRHolder();
                                     phyWSMLWRHolder.setTopologyName(topologyName);
@@ -1086,7 +1112,7 @@ public class Main {
 
                                             oS.writeWCDsToFile(sol.getCost().getaWCDMap());
 
-                                            oS.writeLinkUtilizationsToFile(s.getSolution(), graph, rate);
+                                            oS.writeLinkUtilizationsToFile(s.getSolution(), physicalTopology, rate);
 
                                             oS.writeDurationMap(s.getDurationMap());
 
@@ -1094,7 +1120,7 @@ public class Main {
 
                                             oS.writeAVBTTIntersectionToFile(s.getSolution());
 
-                                            oS.writeLinkAVBTTIntersectionToFile(graph, s.getSolution());
+                                            oS.writeLinkAVBTTIntersectionToFile(physicalTopology, s.getSolution());
 
                                             oS.writeAVBCandidateRoutesToFile(s.getAVBUnicastCandidates());
                                         }
@@ -1109,7 +1135,7 @@ public class Main {
                                         logger.info("Solving problem using {}, {}, {}, K: {}, Dur: {}s, MCDMObjective: {}, wAVB: {}, wTT: {}, wLength: {}, wUtil: {}, RandomizationLWR: {}, wpmVersion: {}, wpmValueType: {}", solver, method, algorithm, k, Duration.ofSeconds(duration).toSeconds(), mcdmObjective, wAVB, wTT, wLength, wUtil, randomizationLWR, wpmVersion, wpmValueType);
                                     }
 
-                                    Solution sol = s.solveMWPMLWR(graph, apps, new AVBLatencyMath(), Duration.ofSeconds(duration), threadNumber, Double.parseDouble(wAVB), Double.parseDouble(wTT), Double.parseDouble(wLength), Double.parseDouble(wUtil), rate, mcdmObjective, randomizationLWR, mhtype, maxIter, wpmVersion, wpmValueType);
+                                    Solution sol = s.solveMWPMLWR(physicalTopology, applications, new AVBLatencyMath(), Duration.ofSeconds(duration), threadNumber, Double.parseDouble(wAVB), Double.parseDouble(wTT), Double.parseDouble(wLength), Double.parseDouble(wUtil), rate, mcdmObjective, randomizationLWR, mhtype, maxIter, wpmVersion, wpmValueType);
 
                                     PHYWPMLWRv1Holder phyWPMLWRv1Holder = new PHYWPMLWRv1Holder();
                                     PHYWPMLWRv2Holder phyWPMLWRv2Holder = new PHYWPMLWRv2Holder();
@@ -1165,7 +1191,7 @@ public class Main {
 
                                                 oS.writeWCDsToFile(sol.getCost().getaWCDMap());
 
-                                                oS.writeLinkUtilizationsToFile(s.getSolution(), graph, rate);
+                                                oS.writeLinkUtilizationsToFile(s.getSolution(), physicalTopology, rate);
 
                                                 oS.writeDurationMap(s.getDurationMap());
 
@@ -1173,7 +1199,7 @@ public class Main {
 
                                                 oS.writeAVBTTIntersectionToFile(s.getSolution());
 
-                                                oS.writeLinkAVBTTIntersectionToFile(graph, s.getSolution());
+                                                oS.writeLinkAVBTTIntersectionToFile(physicalTopology, s.getSolution());
 
                                                 oS.writeAVBCandidateRoutesToFile(s.getAVBUnicastCandidates());
                                             }
@@ -1184,7 +1210,7 @@ public class Main {
 
                                                 oS.writeWCDsToFile(sol.getCost().getaWCDMap());
 
-                                                oS.writeLinkUtilizationsToFile(s.getSolution(), graph, rate);
+                                                oS.writeLinkUtilizationsToFile(s.getSolution(), physicalTopology, rate);
 
                                                 oS.writeDurationMap(s.getDurationMap());
 
@@ -1192,7 +1218,7 @@ public class Main {
 
                                                 oS.writeAVBTTIntersectionToFile(s.getSolution());
 
-                                                oS.writeLinkAVBTTIntersectionToFile(graph, s.getSolution());
+                                                oS.writeLinkAVBTTIntersectionToFile(physicalTopology, s.getSolution());
 
                                                 oS.writeAVBCandidateRoutesToFile(s.getAVBUnicastCandidates());
                                             }
@@ -1205,7 +1231,7 @@ public class Main {
                                     s = new ktu.kaganndemirr.phy.pp.metaheuristic.GRASPWSMCWRD(k);
 
                                     logger.info("Solving problem using {}, {}, {}, K: {}, Dur: {}s, MCDMObjective: {}, RandomizationCWR: {}", solver, method, algorithm, k, Duration.ofSeconds(duration).toSeconds(), mcdmObjective, randomizationCWR);
-                                    Solution sol = s.solveMWSMCWR(graph, apps, new AVBLatencyMath(), Duration.ofSeconds(duration), threadNumber, wsmNormalization, mcdmObjective, randomizationCWR, rate, mhtype, maxIter);
+                                    Solution sol = s.solveMWSMCWR(physicalTopology, applications, new AVBLatencyMath(), Duration.ofSeconds(duration), threadNumber, wsmNormalization, mcdmObjective, randomizationCWR, rate, mhtype, maxIter);
 
                                     PHYWSMCWRHolder phyWSMCWRHolder = new PHYWSMCWRHolder();
 
@@ -1235,7 +1261,7 @@ public class Main {
 
                                             oS.writeWCDsToFile(sol.getCost().getaWCDMap());
 
-                                            oS.writeLinkUtilizationsToFile(s.getSolution(), graph, rate);
+                                            oS.writeLinkUtilizationsToFile(s.getSolution(), physicalTopology, rate);
 
                                             oS.writeDurationMap(s.getDurationMap());
 
@@ -1243,7 +1269,7 @@ public class Main {
 
                                             oS.writeAVBTTIntersectionToFile(s.getSolution());
 
-                                            oS.writeLinkAVBTTIntersectionToFile(graph, s.getSolution());
+                                            oS.writeLinkAVBTTIntersectionToFile(physicalTopology, s.getSolution());
 
                                             oS.writeAVBCandidateRoutesToFile(s.getAVBUnicastCandidates());
                                         }
@@ -1258,7 +1284,7 @@ public class Main {
                                         logger.info("Solving problem using {}, {}, {}, K: {}, Dur: {}s, MCDMObjective: {}, RandomizationCWR: {}, wpmVersion: {}, wpmValueType: {}", solver, method, algorithm, k, Duration.ofSeconds(duration).toSeconds(), mcdmObjective, randomizationCWR, wpmVersion, wpmValueType);
                                     }
 
-                                    Solution sol = s.solveMWPMCWR(graph, apps, new AVBLatencyMath(), Duration.ofSeconds(duration), threadNumber, mcdmObjective, randomizationCWR, rate, mhtype, maxIter, wpmVersion, wpmValueType);
+                                    Solution sol = s.solveMWPMCWR(physicalTopology, applications, new AVBLatencyMath(), Duration.ofSeconds(duration), threadNumber, mcdmObjective, randomizationCWR, rate, mhtype, maxIter, wpmVersion, wpmValueType);
 
                                     PHYWPMCWRv1Holder phyWPMCWRv1Holder = new PHYWPMCWRv1Holder();
                                     PHYWPMCWRv2Holder phyWPMCWRv2Holder = new PHYWPMCWRv2Holder();
@@ -1308,7 +1334,7 @@ public class Main {
 
                                                 oS.writeWCDsToFile(sol.getCost().getaWCDMap());
 
-                                                oS.writeLinkUtilizationsToFile(s.getSolution(), graph, rate);
+                                                oS.writeLinkUtilizationsToFile(s.getSolution(), physicalTopology, rate);
 
                                                 oS.writeDurationMap(s.getDurationMap());
 
@@ -1316,7 +1342,7 @@ public class Main {
 
                                                 oS.writeAVBTTIntersectionToFile(s.getSolution());
 
-                                                oS.writeLinkAVBTTIntersectionToFile(graph, s.getSolution());
+                                                oS.writeLinkAVBTTIntersectionToFile(physicalTopology, s.getSolution());
 
                                                 oS.writeAVBCandidateRoutesToFile(s.getAVBUnicastCandidates());
                                             }else {
@@ -1326,7 +1352,7 @@ public class Main {
 
                                                 oS.writeWCDsToFile(sol.getCost().getaWCDMap());
 
-                                                oS.writeLinkUtilizationsToFile(s.getSolution(), graph, rate);
+                                                oS.writeLinkUtilizationsToFile(s.getSolution(), physicalTopology, rate);
 
                                                 oS.writeDurationMap(s.getDurationMap());
 
@@ -1334,7 +1360,7 @@ public class Main {
 
                                                 oS.writeAVBTTIntersectionToFile(s.getSolution());
 
-                                                oS.writeLinkAVBTTIntersectionToFile(graph, s.getSolution());
+                                                oS.writeLinkAVBTTIntersectionToFile(physicalTopology, s.getSolution());
 
                                                 oS.writeAVBCandidateRoutesToFile(s.getAVBUnicastCandidates());
                                             }
@@ -1347,7 +1373,7 @@ public class Main {
                                     s = new ktu.kaganndemirr.phy.pp.metaheuristic.GRASPWSMLWRCWRD(k);
 
                                     logger.info("Solving problem using {}, {}, {}, K: {}, Dur: {}s, mcdmObjective: {}, RandomizationLWR: {}, RandomizationCWR: {}", solver, method, algorithm, k, Duration.ofSeconds(duration).toSeconds(), mcdmObjective, randomizationLWR, randomizationCWR);
-                                    Solution sol = s.solveMWSMLWRCWR(graph, apps, new AVBLatencyMath(), Duration.ofSeconds(duration), threadNumber, wsmNormalization, mcdmObjective, randomizationLWR, rate, mhtype, maxIter, randomizationCWR);
+                                    Solution sol = s.solveMWSMLWRCWR(physicalTopology, applications, new AVBLatencyMath(), Duration.ofSeconds(duration), threadNumber, wsmNormalization, mcdmObjective, randomizationLWR, rate, mhtype, maxIter, randomizationCWR);
 
                                     PHYWSMLWRCWRHolder phyWSMLWRCWRHolder = new PHYWSMLWRCWRHolder();
                                     phyWSMLWRCWRHolder.setTopologyName(topologyName);
@@ -1377,7 +1403,7 @@ public class Main {
 
                                             oS.writeWCDsToFile(sol.getCost().getaWCDMap());
 
-                                            oS.writeLinkUtilizationsToFile(s.getSolution(), graph, rate);
+                                            oS.writeLinkUtilizationsToFile(s.getSolution(), physicalTopology, rate);
 
                                             oS.writeDurationMap(s.getDurationMap());
 
@@ -1385,7 +1411,7 @@ public class Main {
 
                                             oS.writeAVBTTIntersectionToFile(s.getSolution());
 
-                                            oS.writeLinkAVBTTIntersectionToFile(graph, s.getSolution());
+                                            oS.writeLinkAVBTTIntersectionToFile(physicalTopology, s.getSolution());
 
                                             oS.writeAVBCandidateRoutesToFile(s.getAVBUnicastCandidates());
                                         }

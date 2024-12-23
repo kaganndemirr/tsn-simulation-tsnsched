@@ -150,26 +150,6 @@ public class GraphSpecificMethods {
         return gps;
     }
 
-    public static List<Application> findApplicationsHaveNotExplicitPath(List<Application> applications){
-        List<Application> localApplications = new ArrayList<>();
-        for(Application app: applications){
-            if(app.getExplicitPath().path().isEmpty()){
-                localApplications.add(app);
-            }
-        }
-        return localApplications;
-    }
-
-    public static List<Application> findApplicationsHaveExplicitPath(List<Application> applications){
-        List<Application> localApplications = new ArrayList<>();
-        for(Application app: applications){
-            if(!app.getExplicitPath().path().isEmpty()){
-                localApplications.add(app);
-            }
-        }
-        return localApplications;
-    }
-
     public static List<Unicast> createUnicastForApplicationsHaveExplicitPath(List<Application> applications, Graph<Node, GCLEdge> physicalTopology){
         List<Unicast> unicasts = new ArrayList<>();
         for(Application application: applications){

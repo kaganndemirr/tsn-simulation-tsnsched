@@ -29,7 +29,7 @@ public class ApplicationParser {
      * @param f the XML formatted {@link File}
      * @return a List of {@link Application}s
      */
-    public static List<Application> parse(File f, int rate) {
+    public static List<Application> parse(File f) {
 
         List<Application> applications = new ArrayList<>();
 
@@ -136,5 +136,15 @@ public class ApplicationParser {
 
     private static double getMessageSizeMbps(int payloadSize, int noOfFrames, double interval){
         return (payloadSize * 8.0) * noOfFrames / interval;
+    }
+
+    public static List<Application> findApplicationsHaveNotExplicitPath(List<Application> applications){
+        List<Application> localApplications = new ArrayList<>();
+        for(Application app: applications){
+            if(app.getExplicitPath().path().isEmpty()){
+                localApplications.add(app);
+            }
+        }
+        return localApplications;
     }
 }
